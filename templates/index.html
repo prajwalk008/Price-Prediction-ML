@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grocery Price Predictor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #09f;
+            animation: spin 1s ease infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+     <!-- Link to Inter font (Tailwind default) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-blue-100 via-purple-100 to-pink-100 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl p-8 max-w-lg w-full transform transition-all hover:scale-[1.01] duration-300">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Grocery Price Predictor</h1>
+        
+        <form id="prediction-form" class="space-y-6">
+            <div>
+                <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Product Description (Optional - For future use)</label>
+                <textarea id="description" name="description" rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out" placeholder="e.g., Organic Whole Bean Coffee, 12 oz Bag"></textarea>
+                <p class="text-xs text-gray-500 mt-1">Note: The current model predicts price based *only* on the image.</p>
+            </div>
+
+            <div>
+                <label for="image" class="block text-sm font-medium text-gray-700 mb-1">Product Image</label>
+                <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg bg-gray-50 hover:bg-gray-100 transition">
+                    <div class="space-y-1 text-center">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <div class="flex text-sm text-gray-600">
+                            <label for="image-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
+                                <span>Upload a file</span>
+                                <input id="image-upload" name="image" type="file" class="sr-only" accept="image/png, image/jpeg, image/jpg">
+                            </label>
+                            <p class="pl-1">or drag and drop</p>
+                        </div>
+                        <p class="text-xs text-gray-500" id="file-name">PNG, JPG, JPEG up to 10MB</p>
+                         <img id="image-preview" src="#" alt="Image Preview" class="hidden mx-auto mt-4 max-h-40 rounded"/>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center">
+                <button type="submit" class="w-full inline-flex justify-center items-center py-3 px-6 border border-transparent shadow-sm text-base font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out disabled:opacity-50">
+                    <span id="button-text">Predict Price</span>
+                    <div id="loading-spinner" class="spinner ml-3 hidden"></div>
+                </button>
+            </div>
+        </form>
+
+        <div id="result-area" class="mt-8 text-center hidden bg-green-100 border border-green-300 text-green-800 px-4 py-3 rounded-lg relative" role="alert">
+           <strong class="font-bold">Predicted Price: </strong>
+           <span class="block sm:inline" id="predicted-price"></span>
+        </div>
+        <div id="error-area" class="mt-8 text-center hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative" role="alert">
+           <strong class="font-bold">Error: </strong>
+           <span class="block sm:inline" id="error-message"></span>
+        </div>
+
+    </div>
+
+    <script>
+        const form = document.getElementById('prediction-form');
+        const imageUpload = document.getElementById('image-upload');
+        const fileNameDisplay = document.getElementById('file-name');
+        const imagePreview = document.getElementById('image-preview');
+        const resultArea = document.getElementById('result-area');
+        const predictedPriceSpan = document.getElementById('predicted-price');
+        const errorArea = document.getElementById('error-area');
+        const errorMessageSpan = document.getElementById('error-message');
+        const submitButton = form.querySelector('button[type="submit"]');
+        const buttonText = document.getElementById('button-text');
+        const loadingSpinner = document.getElementById('loading-spinner');
+
+        imageUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                fileNameDisplay.textContent = file.name;
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.classList.remove('hidden');
+                }
+                reader.readAsDataURL(file);
+            } else {
+                fileNameDisplay.textContent = 'PNG, JPG, JPEG up to 10MB';
+                imagePreview.classList.add('hidden');
+                imagePreview.src = '#';
+            }
+        });
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault(); // Prevent default form submission
+
+            const formData = new FormData(form);
+            const imageFile = formData.get('image');
+
+            if (!imageFile || imageFile.size === 0) {
+                showError('Please select an image file.');
+                return;
+            }
+
+            // Show loading state
+            showLoading(true);
+            resultArea.classList.add('hidden');
+            errorArea.classList.add('hidden');
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || `HTTP error! status: ${response.status}`);
+                }
+
+                if (result.predicted_price) {
+                    predictedPriceSpan.textContent = `$${result.predicted_price}`;
+                    resultArea.classList.remove('hidden');
+                } else if (result.error) {
+                     showError(result.error);
+                }
+
+            } catch (error) {
+                console.error('Prediction error:', error);
+                showError(error.message || 'An unexpected error occurred.');
+            } finally {
+                // Hide loading state
+                 showLoading(false);
+            }
+        });
+
+        function showError(message) {
+            errorMessageSpan.textContent = message;
+            errorArea.classList.remove('hidden');
+        }
+
+        function showLoading(isLoading) {
+             submitButton.disabled = isLoading;
+             if (isLoading) {
+                 buttonText.textContent = 'Predicting...';
+                 loadingSpinner.classList.remove('hidden');
+             } else {
+                 buttonText.textContent = 'Predict Price';
+                 loadingSpinner.classList.add('hidden');
+             }
+        }
+
+    </script>
+</body>
+</html>
