@@ -128,7 +128,7 @@ The primary code demonstrating the final ensemble approach is in `final_dl_train
    Ensure all dependencies from `requirements.txt` are installed:
 
     ```bash
-    pip install -r requirements.txt
+    pip install -r req.txt
     ```
 
 2. **Place model file**  
@@ -142,3 +142,4 @@ The primary code demonstrating the final ensemble approach is in `final_dl_train
 
 5. **Run the notebook**  
    Run the cells in `final_dl_training_notebook.ipynb` sequentially. The final cell will generate `test_result2.csv`.
+
